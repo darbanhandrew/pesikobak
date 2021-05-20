@@ -52,10 +52,10 @@ def update_basket_products(sender, **kwargs):
     if pk_set:
         for pk in pk_set:
             if action == 'post_add':
-                instance.total_amount += Product.objects.get(id=pk).price
+                instance.total_amount += Product.objects.get(pk=pk).price
                 # print(Product(pk).price)
             elif action == 'post_remove':
-                instance.total_amount -= Product.objects.get(id=pk).price
+                instance.total_amount -= Product.objects.get(pk=pk).price
                 # print(Product(pk).price)
     instance.save()
 
@@ -68,10 +68,10 @@ def update_basket_coupons(sender, **kwargs):
     if pk_set:
         for pk in pk_set:
             if action == 'post_add':
-                instance.total_amount -= Coupon.objects.get(id=pk).amount
+                instance.total_amount -= Coupon.objects.get(pk=pk).amount
                 # print(Product(pk).price)
             elif action == 'post_remove':
-                instance.total_amount += Product.objects.get(id=pk).amount
+                instance.total_amount += Coupon.objects.get(pk=pk).amount
                 # print(Product(pk).price)
     instance.save()
 

@@ -3,6 +3,8 @@ from django.utils.http import urlencode
 from graphene import relay, ObjectType, String
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
+from graphql_relay import from_global_id
+
 from .models import *
 from payir.models import Transaction, Gateway
 
@@ -94,7 +96,7 @@ class TransactionMutation(graphene.Mutation):
             profile = Profile.objects.get(user=user)
             basket = Basket.objects.filter(profile=profile, is_paid=False).last()
             gateway = Gateway.objects.filter(api_key='test').first()
-            transaction = Transaction(account=user, amount=basket.total_amount*10, gateway=gateway)
+            transaction = Transaction(account=user, amount=basket.total_amount * 10, gateway=gateway)
             transaction.save()
             order = Order(basket=basket, profile=profile, transaction=transaction)
             order.save()
@@ -123,6 +125,59 @@ class VerifyTransactionMutation(graphene.Mutation):
         return VerifyTransactionMutation(transaction=transaction, status=return_status)
 
 
+class ProductToBasketMutation(graphene.Mutation):
+    class Arguments:
+        product_id = graphene.ID(required=True)
+        action = graphene.String(required=True)
+
+    status = graphene.Boolean()
+    product = graphene.Field(ProductNode)
+    basket = graphene.Field(BasketNode)
+
+    @classmethod
+    def mutate(cls, root, info, product_id, action):
+        basket = Basket.objects.filter(profile=info.context.user.profile, is_paid=False).last()
+        if not basket:
+            basket = Basket(profile=info.context.user.profile)
+            basket.save()
+        node_type, _product_id = from_global_id(product_id)
+        product = Product.objects.get(pk=_product_id)
+        if action == 'add':
+            basket.products.add(product)
+            status = True
+        else:
+            basket.products.remove(product)
+            status = False
+        return ProductToBasketMutation(status=status, product=product, basket=basket)
+
+
+class CouponToBasketMutation(graphene.Mutation):
+    class Arguments:
+        coupon_title = graphene.String(required=True)
+        action = graphene.String(required=True)
+
+    status = graphene.Boolean()
+    coupon = graphene.Field(CouponNode)
+    basket = graphene.Field(BasketNode)
+
+    @classmethod
+    def mutate(cls, root, info, coupon_title, action):
+        basket = Basket.objects.filter(profile=info.context.user.profile, is_paid=False).last()
+        if not basket:
+            basket = Basket(profile=info.context.user.profile)
+            basket.save()
+        coupon = Coupon.objects.filter(title=coupon_title).first()
+        if action == 'add':
+            basket.coupons.add(coupon)
+            status = True
+        else:
+            basket.coupons.remove(coupon)
+            status = False
+        return ProductToBasketMutation(status=status, coupon=coupon, basket=basket)
+
+
 class ShopMutation(graphene.ObjectType):
     pay = TransactionMutation.Field()
     verify_payment = VerifyTransactionMutation.Field()
+    product_to_basket = ProductToBasketMutation.Field()
+    coupon_to_basket = CouponToBasketMutation.Field()
